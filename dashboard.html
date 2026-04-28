@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8"/>
@@ -582,6 +582,16 @@
 <!-- TOAST -->
 <div class="toast" id="toast"></div>
 
+<!-- MODAL DE LIMITE EXCEDIDO -->
+<div class="overlay" id="limitOverlay">
+  <div class="modal" style="text-align:center;">
+    <div style="font-size:3rem; margin-bottom:16px;">🛑</div>
+    <h2 style="margin-bottom:8px;">Limite Diário Atingido</h2>
+    <p style="color:var(--muted); margin-bottom:24px;">Você atingiu o limite de 10 rotas gratuitas por dia. Assine um plano para otimizar rotas ilimitadas!</p>
+    <button class="btn btn-primary btn-lg btn-full" onclick="window.location.href='payment.html'">Ver Planos</button>
+    <button class="btn btn-ghost btn-full" style="margin-top:12px;" onclick="document.getElementById('limitOverlay').classList.remove('open')">Cancelar</button>
+  </div>
+</div>
 <script>
 // ─── SESSION ─────────────────────────────────────────────
 const currentUser = JSON.parse(sessionStorage.getItem('rotazap_user') || 'null');
@@ -1153,6 +1163,63 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeImport(
 // ─── PWA SERVICE WORKER ───────────────────────────────────
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('./sw.js').catch(() => {});
+}
+</script>
+<!-- MODAL DE LIMITE EXCEDIDO -->
+<div class="overlay" id="limitOverlay">
+  <div class="modal" style="text-align:center;">
+    <div style="font-size:3rem; margin-bottom:16px;">🛑</div>
+    <h2 style="margin-bottom:8px;">Limite Diário Atingido</h2>
+    <p style="color:var(--muted); margin-bottom:24px;">Você atingiu o limite de 10 rotas gratuitas por dia. Assine um plano para otimizar rotas ilimitadas!</p>
+    <button class="btn btn-primary btn-lg btn-full" onclick="window.location.href='payment.html'">Ver Planos</button>
+    <button class="btn btn-ghost btn-full" style="margin-top:12px;" onclick="document.getElementById('limitOverlay').classList.remove('open')">Cancelar</button>
+  </div>
+</div>
+<script>
+async function checkRouteLimit(numRoutesToAdd) {
+  const token = sessionStorage.getItem('rotazap_token');
+  if (!token) {
+    alert("Faça login para adicionar rotas.");
+    window.location.href = "index.html";
+    return false;
+  }
+  try {
+    const res = await fetch('/api/routes/add', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({ numberOfRoutesToAdd: numRoutesToAdd })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      if (res.status === 403 && !data.allowed) {
+        document.getElementById('limitOverlay').classList.add('open');
+        return false;
+      }
+      throw new Error(data.error || "Erro ao verificar limites.");
+    }
+    return data.allowed;
+  } catch (e) {
+    console.error(e);
+    alert("Erro na conexão com servidor. Tente novamente.");
+    return false;
+  }
+}
+
+// Interceptar o confirmImport original
+const oldConfirmImport = window.confirmImport;
+if (oldConfirmImport) {
+  window.confirmImport = async function() {
+    let addresses = pendingAddresses;
+    if (currentTab === 'text') { addresses = extractAddressesFromText(document.getElementById('pasteText').value); }
+    if (addresses.length === 0) { showToast('Nenhum endereço encontrado', ''); return; }
+    
+    // VERIFICAR LIMITE NO BACKEND
+    const allowed = await checkRouteLimit(addresses.length);
+    if (!allowed) return;
+    
+    // Chama o original para continuar o fluxo normal
+    await oldConfirmImport();
+  };
 }
 </script>
 </body>

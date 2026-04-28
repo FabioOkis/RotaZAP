@@ -1,0 +1,41 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  name      String
+  email     String   @unique
+  password  String
+  createdAt DateTime @default(now())
+
+  // Relations
+  subscription Subscription?
+  dailyUsages  RouteDailyUsage[]
+}
+
+model Subscription {
+  id             Int       @id @default(autoincrement())
+  userId         Int       @unique
+  user           User      @relation(fields: [userId], references: [id])
+  status         String    // "active", "inactive", "pending"
+  plan           String    // "diario", "mensal", "trimestral"
+  mpPreferenceId String?   // Mercado Pago preference or payment ID
+  expiresAt      DateTime?
+  updatedAt      DateTime  @updatedAt
+}
+
+model RouteDailyUsage {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id])
+  date      String   // Formato YYYY-MM-DD para simplificar a busca por dia
+  count     Int      @default(0)
+
+  @@unique([userId, date]) // Um registro de uso por dia por usuário
+}
