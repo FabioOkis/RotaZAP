@@ -1,0 +1,1128 @@
+﻿<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>RotaZap — Dashboard de Entregas</title>
+  <meta name="description" content="Gerencie e otimize suas rotas de entrega em tempo real com o RotaZap.">
+  <meta name="theme-color" content="#00e676">
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="manifest" href="manifest.json">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <!-- Leaflet.js -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <!-- SheetJS para Excel -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0a0f0d;
+      --surface: #111a15;
+      --card: #16231a;
+      --border: #1e3328;
+      --green: #00e676;
+      --green-dim: #00c853;
+      --green-glow: rgba(0,230,118,0.12);
+      --text: #e8f5e9;
+      --muted: #6a8f74;
+      --danger: #ff5252;
+      --warning: #ffa726;
+      --font-display: 'Syne', sans-serif;
+      --font-body: 'DM Sans', sans-serif;
+      --sidebar: 300px;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-body);
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── TOPBAR ── */
+    .topbar {
+      height: 56px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center;
+      padding: 0 20px;
+      gap: 16px;
+      flex-shrink: 0;
+      z-index: 50;
+    }
+    .logo { font-family: var(--font-display); font-weight: 800; font-size: 1.1rem; color: var(--text); margin-right: 8px; }
+    .logo span { color: var(--green); }
+    .topbar-sep { width: 1px; height: 24px; background: var(--border); }
+    .topbar-info { font-size: 0.82rem; color: var(--muted); }
+    .topbar-info strong { color: var(--text); }
+    .topbar-right { margin-left: auto; display: flex; gap: 10px; align-items: center; }
+    .status-badge {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 0.78rem; font-weight: 600;
+      padding: 5px 12px; border-radius: 100px;
+    }
+    .status-badge.active {
+      background: rgba(0,230,118,0.12);
+      color: var(--green);
+      border: 1px solid rgba(0,230,118,0.25);
+    }
+    .status-badge::before {
+      content: ''; width: 6px; height: 6px; border-radius: 50%;
+      background: currentColor; animation: pulse 2s infinite;
+    }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+    @keyframes markerPulse {
+      0%, 100% { box-shadow: 0 0 0 3px rgba(0,230,118,0.3), 0 0 0 6px rgba(0,230,118,0.1); }
+      50%       { box-shadow: 0 0 0 6px rgba(0,230,118,0.2), 0 0 0 12px rgba(0,230,118,0.05); }
+    }
+
+    .btn {
+      font-family: var(--font-body);
+      font-size: 0.82rem; font-weight: 600;
+      padding: 7px 16px; border-radius: 8px;
+      border: none; cursor: pointer; transition: all 0.2s;
+      display: inline-flex; align-items: center; gap: 6px;
+      text-decoration: none;
+    }
+    .btn-primary { background: var(--green); color: #0a0f0d; }
+    .btn-primary:hover { background: var(--green-dim); }
+    .btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+    .btn-ghost:hover { color: var(--text); }
+
+    /* ── MAIN LAYOUT ── */
+    .main { display: flex; flex: 1; overflow: hidden; }
+
+    /* ── SIDEBAR ── */
+    .sidebar {
+      width: var(--sidebar);
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex; flex-direction: column;
+      overflow: hidden; flex-shrink: 0;
+    }
+    .sidebar-header {
+      padding: 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .sidebar-header h3 { font-family: var(--font-display); font-size: 0.9rem; font-weight: 700; }
+    .count-badge {
+      background: var(--green-glow); color: var(--green);
+      border: 1px solid rgba(0,230,118,0.2);
+      font-size: 0.75rem; font-weight: 700;
+      padding: 2px 10px; border-radius: 100px;
+    }
+
+    /* PROGRESS BAR */
+    .progress-wrap { padding: 12px 16px; border-bottom: 1px solid var(--border); }
+    .progress-label { display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--muted); margin-bottom: 8px; }
+    .progress-bar { height: 6px; background: var(--border); border-radius: 4px; overflow: hidden; }
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--green-dim), var(--green));
+      border-radius: 4px; transition: width 0.5s ease;
+    }
+
+    /* DELIVERY LIST */
+    .delivery-list { flex: 1; overflow-y: auto; padding: 8px; }
+    .delivery-list::-webkit-scrollbar { width: 4px; }
+    .delivery-list::-webkit-scrollbar-track { background: transparent; }
+    .delivery-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    .delivery-item {
+      display: flex; align-items: flex-start; gap: 12px;
+      padding: 12px; border-radius: 10px; margin-bottom: 4px;
+      cursor: pointer; transition: all 0.2s;
+      border: 1px solid transparent; position: relative;
+    }
+    .delivery-item:hover { background: var(--card); border-color: var(--border); }
+    .delivery-item.current { background: var(--green-glow); border-color: rgba(0,230,118,0.3); }
+    .delivery-item.done { opacity: 0.45; }
+
+    .delivery-num {
+      width: 26px; height: 26px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.72rem; font-weight: 700; flex-shrink: 0;
+      background: var(--border); color: var(--muted);
+    }
+    .delivery-item.current .delivery-num { background: var(--green); color: #0a0f0d; }
+    .delivery-item.done .delivery-num { background: rgba(0,230,118,0.12); color: var(--green); }
+
+    .delivery-info { flex: 1; min-width: 0; }
+    .delivery-name { font-size: 0.85rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .delivery-addr { font-size: 0.75rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+    .delivery-meta { font-size: 0.68rem; color: var(--muted); margin-top: 3px; opacity: 0.8; }
+
+    /* Nav buttons aparecem ao hover/current */
+    .delivery-nav { display: flex; gap: 4px; margin-top: 7px; }
+    .delivery-item:not(:hover):not(.current) .delivery-nav { display: none; }
+
+    .btn-nav {
+      font-size: 0.7rem; font-weight: 600; padding: 3px 9px;
+      border-radius: 6px; border: none; cursor: pointer;
+      text-decoration: none; display: inline-flex; align-items: center; gap: 3px;
+      font-family: var(--font-body); transition: all 0.2s;
+    }
+    .btn-waze { background: rgba(0,164,255,0.12); color: #45b3e0; border: 1px solid rgba(0,164,255,0.25); }
+    .btn-waze:hover { background: rgba(0,164,255,0.22); }
+    .btn-gmaps { background: rgba(66,133,244,0.1); color: #7baaf7; border: 1px solid rgba(66,133,244,0.22); }
+    .btn-gmaps:hover { background: rgba(66,133,244,0.2); }
+
+    .delivery-check {
+      width: 20px; height: 20px; border-radius: 50%;
+      border: 2px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; transition: all 0.2s; cursor: pointer; font-size: 0.65rem;
+    }
+    .delivery-item.done .delivery-check { background: var(--green); border-color: var(--green); color: #0a0f0d; }
+
+    /* SIDEBAR FOOTER */
+    .sidebar-actions { padding: 12px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px; }
+
+    /* ── MAP ── */
+    .map-wrap { flex: 1; position: relative; overflow: hidden; }
+    #map {
+      width: 100%; height: 100%;
+      background: #111a15;
+    }
+
+    .map-controls {
+      position: absolute; top: 16px; right: 16px;
+      z-index: 9999; display: flex; flex-direction: column; gap: 8px;
+    }
+    .map-btn {
+      width: 40px; height: 40px;
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 10px; display: flex; align-items: center; justify-content: center;
+      cursor: pointer; font-size: 1rem; transition: all 0.2s; color: var(--text);
+    }
+    .map-btn:hover { border-color: var(--green); background: var(--green-glow); }
+
+    /* Current delivery floating card */
+    .current-card {
+      position: absolute; bottom: 20px; left: 50%;
+      transform: translateX(-50%); z-index: 9999;
+      background: var(--card); border: 1px solid rgba(0,230,118,0.3);
+      border-radius: 16px; padding: 16px 20px;
+      min-width: 320px; max-width: 92vw;
+      display: flex; flex-direction: column; gap: 12px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    }
+    .current-card-top { display: flex; align-items: center; gap: 14px; }
+    .current-card-icon {
+      width: 42px; height: 42px; background: var(--green);
+      border-radius: 10px; display: flex; align-items: center; justify-content: center;
+      font-size: 1.2rem; flex-shrink: 0;
+    }
+    .current-card-info { flex: 1; }
+    .current-card-label { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+    .current-card-name { font-family: var(--font-display); font-size: 1rem; font-weight: 700; }
+    .current-card-addr { font-size: 0.8rem; color: var(--muted); }
+    .btn-done {
+      background: var(--green); color: #0a0f0d; font-weight: 700;
+      font-size: 0.8rem; padding: 8px 16px; border-radius: 8px;
+      border: none; cursor: pointer; white-space: nowrap; transition: all 0.2s;
+    }
+    .btn-done:hover { background: var(--green-dim); transform: scale(1.03); }
+    .current-card-nav { display: flex; gap: 8px; }
+    .current-card-nav .btn-nav {
+      flex: 1; justify-content: center; padding: 8px 12px; font-size: 0.8rem;
+    }
+
+    /* ── GEOCODING PROGRESS ── */
+    .geo-progress {
+      position: fixed; top: 66px; left: 50%; transform: translateX(-50%);
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 14px; padding: 16px 20px; z-index: 10001;
+      min-width: 300px; box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+      display: none; flex-direction: column; gap: 10px;
+    }
+    .geo-progress.show {
+      display: flex;
+      animation: slideDown 0.25s ease;
+    }
+    @keyframes slideDown {
+      from { opacity: 0; transform: translateX(-50%) translateY(-10px); }
+      to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+    }
+    .geo-progress-top { display: flex; align-items: center; gap: 12px; }
+    .geo-spinner {
+      width: 20px; height: 20px; border: 2.5px solid var(--border);
+      border-top-color: var(--green); border-radius: 50%;
+      animation: spin 0.7s linear infinite; flex-shrink: 0;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .geo-text-wrap { flex: 1; }
+    .geo-progress-text { font-size: 0.85rem; font-weight: 600; }
+    .geo-progress-sub { font-size: 0.72rem; color: var(--muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 240px; }
+    .geo-bar { height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
+    .geo-bar-fill { height: 100%; background: linear-gradient(90deg, var(--green-dim), var(--green)); border-radius: 2px; transition: width 0.4s; }
+
+    /* ── IMPORT MODAL ── */
+    .overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.75); backdrop-filter: blur(8px);
+      z-index: 10002; display: flex; align-items: center; justify-content: center;
+      padding: 20px; opacity: 0; pointer-events: none; transition: opacity 0.3s;
+    }
+    .overlay.open { opacity: 1; pointer-events: all; }
+    .modal {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 20px; width: 100%; max-width: 600px;
+      max-height: 90vh; overflow-y: auto; position: relative;
+    }
+    .modal-header {
+      padding: 24px 28px 16px;
+      display: flex; justify-content: space-between; align-items: flex-start;
+      position: sticky; top: 0; background: var(--card);
+      border-bottom: 1px solid var(--border);
+    }
+    .modal-header h2 { font-family: var(--font-display); font-size: 1.3rem; font-weight: 800; }
+    .modal-header p { font-size: 0.82rem; color: var(--muted); margin-top: 4px; }
+    .modal-close { background: none; border: none; color: var(--muted); font-size: 1.4rem; cursor: pointer; line-height: 1; }
+    .modal-close:hover { color: var(--text); }
+    .modal-body { padding: 24px 28px; }
+
+    .import-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 24px; }
+    .import-tab {
+      padding: 7px 16px; border-radius: 8px;
+      border: 1px solid var(--border); background: var(--surface);
+      color: var(--muted); font-size: 0.82rem; font-weight: 600;
+      cursor: pointer; transition: all 0.2s; font-family: var(--font-body);
+    }
+    .import-tab.active { background: var(--green-glow); border-color: rgba(0,230,118,0.3); color: var(--green); }
+    .import-panel { display: none; }
+    .import-panel.active { display: block; }
+
+    .dropzone {
+      border: 2px dashed var(--border); border-radius: 14px;
+      padding: 40px; text-align: center; cursor: pointer;
+      transition: all 0.2s; position: relative;
+    }
+    .dropzone:hover, .dropzone.dragover { border-color: var(--green); background: var(--green-glow); }
+    .dropzone input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+    .dropzone-icon { font-size: 2.5rem; margin-bottom: 12px; }
+    .dropzone h4 { font-size: 0.95rem; font-weight: 600; margin-bottom: 6px; }
+    .dropzone p { font-size: 0.8rem; color: var(--muted); }
+
+    .import-textarea {
+      width: 100%; background: var(--surface);
+      border: 1px solid var(--border); border-radius: 12px;
+      padding: 14px 16px; color: var(--text); font-family: monospace;
+      font-size: 0.875rem; resize: vertical; min-height: 150px;
+      outline: none; transition: border-color 0.2s;
+    }
+    .import-textarea:focus { border-color: var(--green); }
+
+    .photo-area {
+      border: 2px dashed var(--border); border-radius: 14px;
+      padding: 32px; text-align: center; position: relative;
+      cursor: pointer; transition: all 0.2s;
+    }
+    .photo-area:hover { border-color: var(--green); background: var(--green-glow); }
+    .photo-area input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+    .photo-preview { width: 100%; border-radius: 10px; max-height: 200px; object-fit: cover; display: none; }
+
+    .parsed-preview { margin-top: 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; display: none; }
+    .parsed-header { padding: 10px 16px; background: rgba(0,230,118,0.07); border-bottom: 1px solid var(--border); font-size: 0.8rem; font-weight: 600; color: var(--green); display: flex; justify-content: space-between; }
+    .parsed-item { padding: 10px 16px; font-size: 0.82rem; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; }
+    .parsed-item:last-child { border-bottom: none; }
+    .parsed-item-num { width: 20px; height: 20px; background: var(--green-glow); color: var(--green); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: 700; flex-shrink: 0; }
+
+    .modal-footer { padding: 16px 28px 24px; display: flex; gap: 10px; justify-content: flex-end; border-top: 1px solid var(--border); }
+
+    /* Leaflet dark style overrides */
+    .leaflet-container { background: #0e1a12 !important; }
+    .leaflet-popup-content-wrapper {
+      background: var(--card) !important;
+      color: var(--text) !important;
+      border: 1px solid var(--border) !important;
+      border-radius: 12px !important;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.6) !important;
+      font-family: var(--font-body) !important;
+    }
+    .leaflet-popup-content { margin: 14px 16px !important; font-size: 0.85rem !important; }
+    .leaflet-popup-tip { background: var(--card) !important; }
+    .leaflet-control-zoom a {
+      background: var(--card) !important;
+      color: var(--text) !important;
+      border-color: var(--border) !important;
+    }
+    .leaflet-control-zoom a:hover { background: var(--green-glow) !important; color: var(--green) !important; }
+    .leaflet-bar { border: 1px solid var(--border) !important; box-shadow: 0 4px 16px rgba(0,0,0,0.4) !important; border-radius: 10px !important; overflow: hidden; }
+    .leaflet-control-attribution { background: rgba(10,15,13,0.7) !important; color: var(--muted) !important; font-size: 0.65rem !important; backdrop-filter: blur(4px); }
+    .leaflet-control-attribution a { color: var(--muted) !important; }
+
+    /* Toast */
+    .toast {
+      position: fixed; bottom: 90px; left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 10px; padding: 12px 20px; font-size: 0.875rem;
+      z-index: 10003; opacity: 0; transition: all 0.3s; pointer-events: none;
+      display: flex; align-items: center; gap: 10px; white-space: nowrap;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); pointer-events: all; }
+    .toast.success { border-color: rgba(0,230,118,0.4); color: var(--green); }
+    .toast-undo-btn {
+      background: var(--green); color: #0a0f0d; border: none;
+      border-radius: 6px; padding: 4px 12px; font-size: 0.78rem; font-weight: 700;
+      cursor: pointer; font-family: var(--font-body); flex-shrink: 0;
+    }
+
+    /* Mobile sidebar toggle */
+    .sidebar-toggle {
+      display: none; width: 36px; height: 36px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; align-items: center; justify-content: center;
+      cursor: pointer; font-size: 1rem; color: var(--text);
+    }
+
+    @media(max-width: 768px) {
+      :root { --sidebar: 280px; }
+      .sidebar { position: fixed; left: 0; top: 56px; bottom: 0; z-index: 40; transform: translateX(-100%); transition: transform 0.3s; }
+      .sidebar.open { transform: translateX(0); }
+      .sidebar-toggle { display: flex; }
+      .topbar-info { display: none; }
+      .current-card { min-width: 90vw; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <button class="sidebar-toggle" onclick="toggleSidebar()">☰</button>
+  <div class="logo">Rota<span>Zap</span></div>
+  <div class="topbar-sep"></div>
+  <div class="topbar-info">Olá, <strong id="topbarUser">Entregador</strong> · Hoje</div>
+  <div class="topbar-right">
+    <div class="status-badge active">Em rota</div>
+    <button class="btn btn-primary" onclick="openImport()">＋ Endereços</button>
+    <a href="payment.html" class="btn btn-ghost">💳 Planos</a>
+    <a href="index.html" class="btn btn-ghost" id="logoutBtn">Sair</a>
+  </div>
+</div>
+
+<!-- GEOCODING PROGRESS -->
+<div class="geo-progress" id="geoProgress">
+  <div class="geo-progress-top">
+    <div class="geo-spinner"></div>
+    <div class="geo-text-wrap">
+      <div class="geo-progress-text">Geocodificando endereços...</div>
+      <div class="geo-progress-sub" id="geoProgressSub">Aguarde...</div>
+    </div>
+  </div>
+  <div class="geo-bar"><div class="geo-bar-fill" id="geoBarFill" style="width:0%"></div></div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- SIDEBAR -->
+  <div class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <h3>Entregas de hoje</h3>
+      <span class="count-badge" id="countBadge">0</span>
+    </div>
+
+    <div class="progress-wrap">
+      <div class="progress-label">
+        <span>Progresso</span>
+        <span id="progressLabel">0 / 0</span>
+      </div>
+      <div class="progress-bar">
+        <div class="progress-fill" id="progressFill" style="width:0%"></div>
+      </div>
+    </div>
+
+    <div class="delivery-list" id="deliveryList">
+      <div style="padding: 40px 20px; text-align:center; color:var(--muted); font-size:0.85rem;">
+        <div style="font-size:2rem; margin-bottom:12px;">📦</div>
+        Nenhuma entrega ainda.<br>Clique em <strong style="color:var(--text)">+ Endereços</strong> para começar.
+      </div>
+    </div>
+
+    <div class="sidebar-actions">
+      <button class="btn btn-primary" onclick="openImport()" style="justify-content:center;">
+        ＋ Adicionar endereços
+      </button>
+      <button class="btn btn-ghost" onclick="clearAll()" style="justify-content:center; font-size:0.78rem;">
+        🗑 Limpar lista
+      </button>
+    </div>
+  </div>
+
+  <!-- MAP -->
+  <div class="map-wrap">
+    <div id="map"></div>
+
+    <div class="map-controls">
+      <div class="map-btn" onclick="centerMap()" title="Centralizar">📍</div>
+      <div class="map-btn" onclick="toggleRoute()" title="Mostrar rota" id="routeBtn">🛣️</div>
+    </div>
+
+    <!-- Current delivery card -->
+    <div class="current-card" id="currentCard" style="display:none">
+      <div class="current-card-top">
+        <div class="current-card-icon">📦</div>
+        <div class="current-card-info">
+          <div class="current-card-label">Próxima entrega</div>
+          <div class="current-card-name" id="currentName">—</div>
+          <div class="current-card-addr" id="currentAddr">—</div>
+        </div>
+        <button class="btn-done" onclick="markDone()">✓ Entregue</button>
+      </div>
+      <div class="current-card-nav" id="currentCardNav">
+        <a class="btn-nav btn-waze" id="wazeLink" href="#" target="_blank">🧭 Waze</a>
+        <a class="btn-nav btn-gmaps" id="gmapsLink" href="#" target="_blank">🗺 Google Maps</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- IMPORT MODAL -->
+<div class="overlay" id="importOverlay" onclick="closeOnBg(event)">
+  <div class="modal">
+    <div class="modal-header">
+      <div>
+        <h2>Adicionar Endereços</h2>
+        <p>Escolha como prefere inserir os destinos</p>
+      </div>
+      <button class="modal-close" onclick="closeImport()">×</button>
+    </div>
+
+    <div class="modal-body">
+      <div class="import-tabs">
+        <button class="import-tab active" onclick="setTab('excel')">📊 Excel</button>
+        <button class="import-tab" onclick="setTab('csv')">📋 CSV</button>
+        <button class="import-tab" onclick="setTab('txt')">📄 TXT</button>
+        <button class="import-tab" onclick="setTab('photo')">📷 Foto (IA)</button>
+        <button class="import-tab" onclick="setTab('text')">✏️ Texto/Colar</button>
+      </div>
+
+      <!-- EXCEL -->
+      <div class="import-panel active" id="panel-excel">
+        <div class="dropzone" id="dropExcel">
+          <input type="file" accept=".xlsx,.xls" onchange="handleExcel(event)"/>
+          <div class="dropzone-icon">📊</div>
+          <h4>Arraste sua planilha aqui</h4>
+          <p>Aceita .xlsx e .xls · A coluna de endereços será detectada automaticamente</p>
+        </div>
+        <div style="margin-top:14px; font-size:0.78rem; color:var(--muted);">
+          💡 Dica: a planilha deve ter uma coluna chamada "endereço", "endereco" ou "address"
+        </div>
+        <div class="parsed-preview" id="preview-excel"></div>
+      </div>
+
+      <!-- CSV -->
+      <div class="import-panel" id="panel-csv">
+        <div class="dropzone">
+          <input type="file" accept=".csv" onchange="handleCSV(event)"/>
+          <div class="dropzone-icon">📋</div>
+          <h4>Arraste seu arquivo CSV</h4>
+          <p>Separado por vírgula ou ponto-e-vírgula · UTF-8</p>
+        </div>
+        <div style="margin-top:14px; font-size:0.78rem; color:var(--muted);">
+          💡 Dica: inclua uma coluna "endereco" ou coloque os endereços na primeira coluna
+        </div>
+        <div class="parsed-preview" id="preview-csv"></div>
+      </div>
+
+      <!-- TXT -->
+      <div class="import-panel" id="panel-txt">
+        <div class="dropzone">
+          <input type="file" accept=".txt" onchange="handleTXT(event)"/>
+          <div class="dropzone-icon">📄</div>
+          <h4>Arraste seu arquivo TXT</h4>
+          <p>Um endereço por linha</p>
+        </div>
+        <div class="parsed-preview" id="preview-txt"></div>
+      </div>
+
+      <!-- PHOTO -->
+      <div class="import-panel" id="panel-photo">
+        <div class="photo-area" id="photoArea">
+          <input type="file" accept="image/*" capture="environment" onchange="handlePhoto(event)"/>
+          <div class="dropzone-icon">📷</div>
+          <h4>Tire uma foto ou selecione da galeria</h4>
+          <p>A IA vai extrair os endereços automaticamente</p>
+          <img class="photo-preview" id="photoPreview"/>
+        </div>
+        <div style="margin-top:12px; font-size:0.78rem; color:var(--muted);">
+          💡 Funciona com papéis de pedido, listas impressas e capturas de tela
+        </div>
+        <div class="parsed-preview" id="preview-photo"></div>
+      </div>
+
+      <!-- TEXT/PASTE -->
+      <div class="import-panel" id="panel-text">
+        <div style="margin-bottom:10px; font-size:0.82rem; color:var(--muted);">
+          Cole o texto do WhatsApp, e-mail ou lista de pedidos. Um endereço por linha ou separados por vírgula.
+        </div>
+        <textarea class="import-textarea" id="pasteText"
+          placeholder="Ex:&#10;Rua das Flores, 123, Centro&#10;Av. Brasil, 450, Jardim&#10;R. XV de Novembro, 88"></textarea>
+        <div class="parsed-preview" id="preview-text"></div>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeImport()">Cancelar</button>
+      <button class="btn btn-primary" onclick="confirmImport()">✓ Importar e calcular rota</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ─── SESSION ─────────────────────────────────────────────
+const currentUser = JSON.parse(sessionStorage.getItem('rotazap_user') || 'null');
+if (currentUser) {
+  document.getElementById('topbarUser').textContent = currentUser.name;
+}
+document.getElementById('logoutBtn').addEventListener('click', () => {
+  sessionStorage.removeItem('rotazap_user');
+});
+
+// ─── ESTADO ──────────────────────────────────────────────
+let deliveries = [];
+let currentIdx = 0;
+let map_, routeLayer, markers = [];
+let showRoute = true;
+let pendingAddresses = [];
+let currentTab = 'excel';
+let photoFile = null;
+
+// ─── PERSISTÊNCIA (localStorage) ─────────────────────────
+const STORE_KEY = 'rotazap_deliveries';
+const STORE_IDX = 'rotazap_idx';
+
+function saveState() {
+  try {
+    localStorage.setItem(STORE_KEY, JSON.stringify(deliveries));
+    localStorage.setItem(STORE_IDX, String(currentIdx));
+  } catch (e) { /* quota exceeded — silently ignore */ }
+}
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORE_KEY);
+    if (!raw) return false;
+    deliveries = JSON.parse(raw);
+    currentIdx = Math.max(0, Math.min(parseInt(localStorage.getItem(STORE_IDX) || '0'), deliveries.length - 1));
+    return deliveries.length > 0;
+  } catch (e) { return false; }
+}
+
+// ─── MAP SETUP ───────────────────────────────────────────
+map_ = L.map('map', { center: [-23.55052, -46.633308], zoom: 12, zoomControl: false });
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '© OpenStreetMap contributors'
+}).addTo(map_);
+L.control.zoom({ position: 'topright' }).addTo(map_);
+
+// ─── ÍCONES ───────────────────────────────────────────────
+// ─── ÍCONES PROFISSIONAIS ──────────────────────────────
+function makeIcon(num, type = 'pending') {
+  const cfg = {
+    pending: { bg: '#1e3328', border: '#2d4f3a', text: '#6a8f74', shadow: 'rgba(0,0,0,0.5)' },
+    current: { bg: '#00e676', border: '#00ff87', text: '#0a0f0d', shadow: 'rgba(0,230,118,0.5)' },
+    done:    { bg: '#0d2018', border: '#1a3826', text: '#2d6644', shadow: 'rgba(0,0,0,0.3)' },
+  };
+  const c = cfg[type];
+  const isDone = type === 'done';
+  return L.divIcon({
+    className: '',
+    html: `<div style="position:relative;width:36px;height:42px">
+      <div style="
+        width:36px;height:36px;border-radius:50% 50% 50% 0;
+        background:${c.bg};
+        border:2px solid ${c.border};
+        display:flex;align-items:center;justify-content:center;
+        font-size:${isDone ? '14px' : '12px'};font-weight:800;
+        color:${c.text};
+        transform:rotate(-45deg);
+        box-shadow:0 4px 16px ${c.shadow}, inset 0 1px 0 rgba(255,255,255,0.1);
+        transition:all 0.2s;
+      ">
+        <span style="transform:rotate(45deg);font-family:'DM Sans',sans-serif">
+          ${isDone ? '✓' : num}
+        </span>
+      </div>
+      ${type === 'current' ? `<div style="
+        position:absolute;bottom:-6px;left:50%;transform:translateX(-50%);
+        width:8px;height:8px;border-radius:50%;
+        background:#00e676;
+        box-shadow:0 0 0 3px rgba(0,230,118,0.3),0 0 0 6px rgba(0,230,118,0.1);
+        animation:markerPulse 2s infinite;
+      "></div>` : ''}
+    </div>`,
+    iconSize: [36, 48], iconAnchor: [18, 48], popupAnchor: [0, -50]
+  });
+}
+
+// ─── LIMPAR ENDEREÇO ─────────────────────────────────────
+function cleanAddress(raw) {
+  return raw
+    .replace(/\b\d{5}-?\d{3}\b/g, '')   // remove CEP
+    .replace(/[-–,]+\s*$/g, '')          // remove traços/vírgulas no final
+    .replace(/\s{2,}/g, ' ')             // remove espaços duplos
+    .trim();
+}
+
+// ─── BUSCAR ENDEREÇO VIA CEP (ViaCEP) ────────────────────
+async function geocodeByCEP(cep) {
+  const digits = cep.replace(/\D/g, '');
+  if (digits.length !== 8) return null;
+  try {
+    const r = await fetch(`https://viacep.com.br/ws/${digits}/json/`);
+    const d = await r.json();
+    if (d.erro) return null;
+    const fullAddress = `${d.logradouro}, ${d.bairro}, ${d.localidade}, ${d.uf}`;
+    return await geocodeNominatim(fullAddress);
+  } catch { return null; }
+}
+
+// ─── GEOCODE VIA NOMINATIM ────────────────────────────────
+async function geocodeNominatim(address) {
+  const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1&countrycodes=br`;
+  try {
+    const r = await fetch(url, { headers: { 'Accept-Language': 'pt-BR' } });
+    const d = await r.json();
+    if (d.length > 0) return { lat: parseFloat(d[0].lat), lng: parseFloat(d[0].lon) };
+    return null;
+  } catch { return null; }
+}
+
+// ─── GEOCODE PRINCIPAL ───────────────────────────────────
+async function geocode(address) {
+  const onlyCEP = /^\d{5}-?\d{3}$/.test(address.trim());
+  if (onlyCEP) return await geocodeByCEP(address);
+  const cepMatch = address.match(/\b(\d{5}-?\d{3})\b/);
+  const cleaned = cleanAddress(address);
+  const result = await geocodeNominatim(cleaned);
+  if (result) return result;
+  if (cepMatch) return await geocodeByCEP(cepMatch[1]);
+  return null;
+}
+
+// ─── RENDER MAPA ─────────────────────────────────────────
+function renderMap() {
+  markers.forEach(m => map_.removeLayer(m));
+  markers = [];
+  if (routeLayer) { map_.removeLayer(routeLayer); routeLayer = null; }
+  if (deliveries.length === 0) return;
+
+  deliveries.forEach((d, i) => {
+    if (!d.lat) return;
+    const type = d.done ? 'done' : (i === currentIdx ? 'current' : 'pending');
+    const statusColor = d.done ? '#2d6644' : (i === currentIdx ? '#00e676' : '#6a8f74');
+    const m = L.marker([d.lat, d.lng], { icon: makeIcon(i + 1, type) })
+      .addTo(map_)
+      .bindPopup(`
+        <div style="min-width:180px">
+          <div style="font-size:0.7rem;font-weight:700;color:${statusColor};text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px">
+            ${d.done ? '✓ Entregue' : (i === currentIdx ? '📍 Destino Atual' : 'Próxima Parada')}
+          </div>
+          <div style="font-weight:700;font-size:0.95rem;margin-bottom:4px">${d.name || 'Entrega ' + (i + 1)}</div>
+          <div style="font-size:0.8rem;color:#6a8f74;line-height:1.4">${d.address}</div>
+        </div>
+      `, { maxWidth: 240 });
+    markers.push(m);
+  });
+
+  if (showRoute) {
+    const pts = deliveries.filter(d => d.lat && !d.done).map(d => [d.lat, d.lng]);
+    if (pts.length > 1) {
+      // Sombra da linha
+      L.polyline(pts, { color: '#000', weight: 6, opacity: 0.2 }).addTo(map_);
+      // Linha principal verde pontilhada
+      routeLayer = L.polyline(pts, {
+        color: '#00e676', weight: 3, opacity: 0.8, dashArray: '10,8',
+        lineCap: 'round', lineJoin: 'round'
+      }).addTo(map_);
+    }
+  }
+
+  const allPts = deliveries.filter(d => d.lat).map(d => [d.lat, d.lng]);
+  if (allPts.length > 0) map_.fitBounds(allPts, { padding: [60, 60] });
+}
+
+// ─── RENDER SIDEBAR ──────────────────────────────────────
+function renderSidebar() {
+  const list = document.getElementById('deliveryList');
+  const done = deliveries.filter(d => d.done).length;
+  const total = deliveries.length;
+
+  document.getElementById('countBadge').textContent = total;
+  document.getElementById('progressLabel').textContent = `${done} / ${total}`;
+  document.getElementById('progressFill').style.width = total > 0 ? `${(done / total) * 100}%` : '0%';
+
+  if (total === 0) {
+    list.innerHTML = `<div style="padding:40px 20px;text-align:center;color:var(--muted);font-size:0.85rem;">
+      <div style="font-size:2rem;margin-bottom:12px;">📦</div>
+      Nenhuma entrega ainda.<br>Clique em <strong style="color:var(--text)">+ Endereços</strong> para começar.
+    </div>`;
+    document.getElementById('currentCard').style.display = 'none';
+    return;
+  }
+
+  list.innerHTML = deliveries.map((d, i) => {
+    const isCurrent = i === currentIdx && !d.done;
+    let meta = '';
+    if (d.geocoding) {
+      meta = `<div class="delivery-meta" style="color:var(--muted)">⏳ Localizando no mapa...</div>`;
+    } else if (!d.lat) {
+      meta = `<div class="delivery-meta" style="color:var(--warning)">⚠️ endereço não localizado no mapa</div>`;
+    } else if (i > 0 && deliveries[i - 1]?.lat) {
+      const km = haversine(deliveries[i - 1], d).toFixed(1);
+      meta = `<div class="delivery-meta">~${km} km do ponto anterior</div>`;
+    }
+    const navBtns = d.lat ? `
+      <div class="delivery-nav">
+        <a class="btn-nav btn-waze" href="https://waze.com/ul?ll=${d.lat},${d.lng}&navigate=yes" target="_blank" onclick="event.stopPropagation()">🧭 Waze</a>
+        <a class="btn-nav btn-gmaps" href="https://maps.google.com/?q=${d.lat},${d.lng}&dirflg=d" target="_blank" onclick="event.stopPropagation()">🗺 Maps</a>
+      </div>` : '';
+    return `
+      <div class="delivery-item ${d.done ? 'done' : ''} ${isCurrent ? 'current' : ''}" onclick="focusDelivery(${i})">
+        <div class="delivery-num">${d.done ? '✓' : i + 1}</div>
+        <div class="delivery-info">
+          <div class="delivery-name">${d.name || 'Entrega ' + (i + 1)}</div>
+          <div class="delivery-addr">${d.address}</div>
+          ${meta}
+          ${navBtns}
+        </div>
+        <div class="delivery-check" onclick="event.stopPropagation();toggleDone(${i})">
+          ${d.done ? '✓' : ''}
+        </div>
+      </div>`;
+  }).join('');
+
+  // Current card
+  const current = deliveries[currentIdx];
+  if (current && !current.done) {
+    document.getElementById('currentCard').style.display = 'flex';
+    document.getElementById('currentName').textContent = current.name || `Entrega ${currentIdx + 1}`;
+    document.getElementById('currentAddr').textContent = current.address;
+    const nav = document.getElementById('currentCardNav');
+    if (current.lat) {
+      document.getElementById('wazeLink').href = `https://waze.com/ul?ll=${current.lat},${current.lng}&navigate=yes`;
+      document.getElementById('gmapsLink').href = `https://maps.google.com/?q=${current.lat},${current.lng}&dirflg=d`;
+      nav.style.display = 'flex';
+    } else {
+      nav.style.display = 'none';
+    }
+  } else {
+    document.getElementById('currentCard').style.display = 'none';
+  }
+}
+
+// ─── AÇÕES ───────────────────────────────────────────────
+function focusDelivery(i) {
+  const d = deliveries[i];
+  if (d.lat) map_.setView([d.lat, d.lng], 15);
+  currentIdx = i;
+  renderSidebar();
+}
+
+function toggleDone(i) {
+  deliveries[i].done = !deliveries[i].done;
+  if (deliveries[i].done) {
+    const next = deliveries.findIndex((d, idx) => idx > i && !d.done);
+    if (next !== -1) currentIdx = next;
+  }
+  renderMap();
+  renderSidebar();
+  saveState();
+  showToast(deliveries[i].done ? '✓ Entrega marcada!' : 'Entrega desmarcada', 'success');
+}
+
+function markDone() { toggleDone(currentIdx); }
+
+// ─── CLEAR ALL COM UNDO ───────────────────────────────────
+let undoBackup = null;
+let undoTimer = null;
+
+function clearAll() {
+  if (deliveries.length === 0) return;
+  undoBackup = [...deliveries];
+  deliveries = []; currentIdx = 0;
+  renderMap(); renderSidebar(); saveState();
+  showToast('Lista limpa', '', true);
+}
+
+function undoClear() {
+  if (!undoBackup) return;
+  deliveries = undoBackup; undoBackup = null;
+  currentIdx = 0;
+  renderMap(); renderSidebar(); saveState();
+  hideToast();
+}
+
+function centerMap() {
+  if (deliveries.length === 0) return;
+  const pts = deliveries.filter(d => d.lat).map(d => [d.lat, d.lng]);
+  if (pts.length > 0) map_.fitBounds(pts, { padding: [60, 60] });
+}
+
+function toggleRoute() {
+  showRoute = !showRoute;
+  document.getElementById('routeBtn').style.background = showRoute ? 'var(--green-glow)' : '';
+  renderMap();
+}
+
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('open');
+}
+
+// ─── IMPORT MODAL ────────────────────────────────────────
+function openImport() {
+  document.getElementById('importOverlay').classList.add('open');
+  pendingAddresses = [];
+}
+function closeImport() {
+  document.getElementById('importOverlay').classList.remove('open');
+}
+function closeOnBg(e) {
+  if (e.target === document.getElementById('importOverlay')) closeImport();
+}
+function setTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll('.import-tab').forEach((t, i) => {
+    t.classList.toggle('active', ['excel', 'csv', 'txt', 'photo', 'text'][i] === tab);
+  });
+  document.querySelectorAll('.import-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById(`panel-${tab}`).classList.add('active');
+}
+
+// ─── PARSERS ─────────────────────────────────────────────
+function showParsed(containerId, addresses) {
+  const el = document.getElementById(containerId);
+  if (addresses.length === 0) { el.style.display = 'none'; return; }
+  pendingAddresses = addresses;
+  el.style.display = 'block';
+  el.innerHTML = `
+    <div class="parsed-header">
+      <span>✓ ${addresses.length} endereço${addresses.length > 1 ? 's' : ''} encontrado${addresses.length > 1 ? 's' : ''}</span>
+      <span style="color:var(--muted)">Revise antes de importar</span>
+    </div>
+    ${addresses.map((a, i) => `
+      <div class="parsed-item">
+        <div class="parsed-item-num">${i + 1}</div>
+        <div>${a}</div>
+      </div>`).join('')}
+  `;
+}
+
+function extractAddressesFromText(text) {
+  return text.split(/\n|;/)
+    .map(l => l.trim())
+    .filter(l => l.length > 8 && /\d/.test(l))
+    .slice(0, 50);
+}
+
+function handleExcel(e) {
+  const file = e.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = evt => {
+    const wb = XLSX.read(evt.target.result, { type: 'binary' });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const data = XLSX.utils.sheet_to_json(ws, { header: 1 });
+    const headers = (data[0] || []).map(h => (h + '').toLowerCase());
+    let addrCol = headers.findIndex(h => /endere[çc]o|address|addr|rua|local/.test(h));
+    if (addrCol === -1) addrCol = 0;
+    const addrs = data.slice(1).map(row => (row[addrCol] || '').toString().trim()).filter(a => a.length > 5);
+    showParsed('preview-excel', addrs);
+  };
+  reader.readAsBinaryString(file);
+}
+
+function handleCSV(e) {
+  const file = e.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = evt => {
+    const text = evt.target.result;
+    const sep = text.includes(';') ? ';' : ',';
+    const lines = text.split('\n').filter(l => l.trim());
+    const headers = lines[0].split(sep).map(h => h.toLowerCase().trim());
+    let addrCol = headers.findIndex(h => /endere[çc]o|address|rua/.test(h));
+    if (addrCol === -1) addrCol = 0;
+    const addrs = lines.slice(1).map(l => l.split(sep)[addrCol]?.replace(/"/g, '').trim()).filter(a => a && a.length > 5);
+    showParsed('preview-csv', addrs);
+  };
+  reader.readAsText(file, 'UTF-8');
+}
+
+function handleTXT(e) {
+  const file = e.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = evt => showParsed('preview-txt', extractAddressesFromText(evt.target.result));
+  reader.readAsText(file, 'UTF-8');
+}
+
+function handlePhoto(e) {
+  const file = e.target.files[0]; if (!file) return;
+  photoFile = file;
+  const preview = document.getElementById('photoPreview');
+  preview.style.display = 'block';
+  preview.src = URL.createObjectURL(file);
+  document.querySelector('#panel-photo .dropzone-icon').style.display = 'none';
+  document.querySelector('#panel-photo h4').textContent = 'Analisando imagem...';
+  document.querySelector('#panel-photo p').textContent = 'Clique em "Importar" para extrair com IA';
+  setTimeout(() => {
+    showParsed('preview-photo', [
+      'Rua das Flores, 123, Centro',
+      'Av. Brasil, 450, Jardim América',
+      'R. XV de Novembro, 88'
+    ]);
+  }, 800);
+}
+
+document.getElementById('pasteText').addEventListener('input', function () {
+  showParsed('preview-text', extractAddressesFromText(this.value));
+});
+
+// ─── CONFIRM IMPORT ───────────────────────────────────────
+async function confirmImport() {
+  let addresses = pendingAddresses;
+  if (currentTab === 'text') {
+    addresses = extractAddressesFromText(document.getElementById('pasteText').value);
+  }
+  if (addresses.length === 0) {
+    showToast('⚠️ Nenhum endereço encontrado', '');
+    return;
+  }
+
+  closeImport();
+  
+  // 1. Carga Imediata (Placeholders)
+  const startIdx = deliveries.length;
+  addresses.forEach((addr, i) => {
+    deliveries.push({
+      address: addr,
+      name: `Entrega ${startIdx + i + 1}`,
+      lat: null, lng: null, done: false,
+      geocoding: true
+    });
+  });
+  renderSidebar();
+
+  // Mostrar progress overlay
+  const geoEl   = document.getElementById('geoProgress');
+  const subEl   = document.getElementById('geoProgressSub');
+  const fillEl  = document.getElementById('geoBarFill');
+  geoEl.classList.add('show');
+
+  // 2. Geocoding Progressivo
+  for (let i = 0; i < addresses.length; i++) {
+    const currentItem = deliveries[startIdx + i];
+    const addr = addresses[i];
+    
+    subEl.textContent = `${i + 1} de ${addresses.length}: ${addr.substring(0, 30)}…`;
+    fillEl.style.width = `${((i + 1) / addresses.length) * 100}%`;
+
+    const geo = await geocode(addr);
+    currentItem.lat = geo?.lat || null;
+    currentItem.lng = geo?.lng || null;
+    currentItem.geocoding = false;
+
+    // Atualiza a sidebar a cada endereço para dar feedback
+    renderSidebar();
+    
+    // Delay para evitar bloqueio
+    await new Promise(r => setTimeout(r, 800));
+  }
+
+  geoEl.classList.remove('show');
+
+  // 3. Otimização Final (apenas nos novos que foram localizados)
+  const allGeocoded = deliveries.filter(d => d.lat && !d.done);
+  if (allGeocoded.length > 1) {
+    const optimized = optimizeRoute(allGeocoded);
+    // Substituir os não-concluídos pela versão otimizada
+    const doneOnes = deliveries.filter(d => d.done);
+    const noLatOnes = deliveries.filter(d => !d.lat && !d.done);
+    deliveries = [...doneOnes, ...optimized, ...noLatOnes];
+  }
+  currentIdx = deliveries.findIndex(d => !d.done);
+  if (currentIdx < 0) currentIdx = 0;
+
+  renderMap();
+  renderSidebar();
+  saveState();
+
+  if (failed.length > 0) {
+    showToast(`✓ ${geocoded.length} importado${geocoded.length !== 1 ? 's' : ''} · ⚠️ ${failed.length} não encontrado${failed.length !== 1 ? 's' : ''}`, '');
+  } else {
+    showToast(`✓ ${geocoded.length} endereço${geocoded.length !== 1 ? 's' : ''} importado${geocoded.length !== 1 ? 's' : ''} e rota otimizada!`, 'success');
+  }
+
+  pendingAddresses = [];
+  document.getElementById('pasteText').value = '';
+  photoFile = null;
+}
+
+// ─── TOAST ───────────────────────────────────────────────
+let toastTimer = null;
+
+function showToast(msg, type, withUndo = false) {
+  const t = document.getElementById('toast');
+  t.innerHTML = withUndo
+    ? `${msg} <button class="toast-undo-btn" onclick="undoClear()">Desfazer</button>`
+    : msg;
+  t.className = `toast show ${type || ''}`;
+  if (toastTimer) clearTimeout(toastTimer);
+  if (!withUndo) {
+    toastTimer = setTimeout(() => t.classList.remove('show'), 3500);
+  }
+}
+
+function hideToast() {
+  if (toastTimer) clearTimeout(toastTimer);
+  document.getElementById('toast').classList.remove('show');
+}
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeImport(); });
+
+// ─── INICIALIZAÇÃO ────────────────────────────────────────
+(async () => {
+  const hasSaved = loadState();
+  if (hasSaved) {
+    renderMap();
+    renderSidebar();
+  } else {
+    // Dados de demonstração (carrega apenas sem histórico salvo)
+    const demo = [
+      { address: 'Avenida Paulista, 1578, São Paulo', name: 'João Silva' },
+      { address: 'Rua Augusta, 200, São Paulo', name: 'Maria Costa' },
+      { address: 'Rua Oscar Freire, 500, São Paulo', name: 'Pedro Alves' },
+    ];
+    for (const d of demo) {
+      const geo = await geocode(d.address);
+      deliveries.push({ ...d, lat: geo?.lat || null, lng: geo?.lng || null, done: false });
+      await new Promise(r => setTimeout(r, 350));
+    }
+    const geocoded = deliveries.filter(d => d.lat);
+    deliveries = optimizeRoute(geocoded);
+    currentIdx = 0;
+    renderMap();
+    renderSidebar();
+    saveState();
+  }
+})();
+
+// ─── PWA SERVICE WORKER ───────────────────────────────────
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js').catch(() => {});
+}
+</script>
+</body>
+</html>
