@@ -13,6 +13,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret';
 // Configurações Globais
 app.use(cors());
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // --- MIDDLEWARES ---
 
@@ -30,27 +31,34 @@ const authenticateToken = (req, res, next) => {
   });
 };
 
+// Middleware para verificar se é admin
+const isAdmin = (req, res, next) => {
+  if (req.user && req.user.role === 'admin') {
+    next();
+  } else {
+    res.status(403).json({ error: 'Acesso negado. Apenas administradores.' });
+  }
+};
+
 // --- ROTAS DE AUTENTICAÇÃO ---
 
 app.post('/api/auth/register', async (req, res) => {
   try {
     const { name, email, password } = req.body;
     
-    // Verificar se já existe
     const existingUser = await prisma.user.findUnique({ where: { email } });
     if (existingUser) {
       return res.status(400).json({ error: 'E-mail já está em uso.' });
     }
 
-    // Hash da senha
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Criar o usuário
     const user = await prisma.user.create({
       data: {
         name,
         email,
-        password: hashedPassword
+        password: hashedPassword,
+        role: 'user'
       }
     });
 
@@ -63,27 +71,147 @@ app.post('/api/auth/register', async (req, res) => {
 
 app.post('/api/auth/login', async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const email = req.body.email || req.body.username;
+    const password = req.body.password;
 
-    // Buscar usuário
+    if (!email || !password) {
+      return res.status(400).json({ error: 'E-mail e senha são obrigatórios.' });
+    }
+
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) {
       return res.status(400).json({ error: 'Credenciais inválidas.' });
     }
 
-    // Verificar senha
+    if (!user.isActive) {
+      return res.status(403).json({ error: 'Sua conta está desativada. Entre em contato com o suporte.' });
+    }
+
     const validPassword = await bcrypt.compare(password, user.password);
     if (!validPassword) {
       return res.status(400).json({ error: 'Credenciais inválidas.' });
     }
 
-    // Gerar token
-    const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '7d' });
+    const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
 
-    res.json({ token, name: user.name });
+    res.json({ token, name: user.name, role: user.role });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Erro interno no servidor.' });
+  }
+});
+
+app.get('/api/auth/me', authenticateToken, async (req, res) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.id },
+      select: { id: true, name: true, email: true, role: true, isActive: true }
+    });
+    if (!user) return res.status(404).json({ error: 'Usuário não encontrado' });
+    res.json(user);
+  } catch (error) {
+    res.status(500).json({ error: 'Erro ao buscar perfil' });
+  }
+});
+
+// --- ROTAS ADMINISTRATIVAS ---
+
+app.get('/api/admin/stats', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const totalUsers = await prisma.user.count({ where: { role: 'user' } });
+    const activeSubs = await prisma.subscription.count({ where: { status: 'active' } });
+    const routesToday = await prisma.routeDailyUsage.aggregate({
+      where: { date: new Date().toISOString().split('T')[0] },
+      _sum: { count: true }
+    });
+    
+    const totalRevenue = 0; // Placeholder para faturamento real
+
+    res.json({
+      total_users: totalUsers,
+      active_users: activeSubs,
+      routes_today: routesToday._sum.count || 0,
+      total_deliveries: 0,
+      completion_rate: 0,
+      total_revenue: totalRevenue
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Erro ao buscar estatísticas.' });
+  }
+});
+
+app.get('/api/admin/users', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const users = await prisma.user.findMany({
+      where: { role: 'user' },
+      include: {
+        subscription: true,
+        _count: {
+          select: { dailyUsages: true }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    const formattedUsers = users.map(u => ({
+      id: u.id,
+      name: u.name,
+      email: u.email,
+      is_active: u.isActive,
+      total_routes: 0, // Placeholder
+      total_deliveries: 0, // Placeholder
+      plan: u.subscription?.plan || 'free'
+    }));
+
+    res.json(formattedUsers);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Erro ao buscar usuários.' });
+  }
+});
+
+app.post('/api/admin/users/:id/reset-password', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { password } = req.body;
+    const hashedPassword = await bcrypt.hash(password, 10);
+    
+    await prisma.user.update({
+      where: { id: parseInt(id) },
+      data: { password: hashedPassword }
+    });
+    
+    res.json({ message: 'Senha redefinida com sucesso!' });
+  } catch (error) {
+    res.status(500).json({ error: 'Erro ao redefinir senha.' });
+  }
+});
+
+app.put('/api/admin/users/:id/toggle-active', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const user = await prisma.user.findUnique({ where: { id: parseInt(id) } });
+    if (!user) return res.status(404).json({ error: 'Usuário não encontrado' });
+
+    await prisma.user.update({
+      where: { id: parseInt(id) },
+      data: { isActive: !user.isActive }
+    });
+    
+    res.json({ message: `Usuário ${user.isActive ? 'desativado' : 'ativado'} com sucesso!` });
+  } catch (error) {
+    res.status(500).json({ error: 'Erro ao alterar status do usuário.' });
+  }
+});
+
+app.delete('/api/admin/users/:id', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    await prisma.user.delete({ where: { id: parseInt(id) } });
+    res.json({ message: 'Usuário excluído com sucesso!' });
+  } catch (error) {
+    res.status(500).json({ error: 'Erro ao excluir usuário.' });
   }
 });
 
@@ -93,24 +221,20 @@ app.post('/api/routes/add', authenticateToken, async (req, res) => {
   try {
     const { numberOfRoutesToAdd } = req.body;
     const userId = req.user.id;
-    const today = new Date().toISOString().split('T')[0]; // Formato YYYY-MM-DD
+    const today = new Date().toISOString().split('T')[0];
 
-    // Verificar se tem assinatura ativa
     const subscription = await prisma.subscription.findUnique({ where: { userId } });
     const isActive = subscription && subscription.status === 'active' && subscription.expiresAt > new Date();
 
     if (isActive) {
-      // Tem plano, rotas ilimitadas. Pode adicionar sem checar limites.
       return res.json({ allowed: true, message: 'Rotas adicionadas (plano premium)' });
     }
 
-    // Se não tem plano ativo, verificar limite gratuito diário (10)
     let usage = await prisma.routeDailyUsage.findUnique({
       where: { userId_date: { userId, date: today } }
     });
 
     if (!usage) {
-      // Cria o registro do dia
       usage = await prisma.routeDailyUsage.create({
         data: { userId, date: today, count: 0 }
       });
@@ -125,7 +249,6 @@ app.post('/api/routes/add', authenticateToken, async (req, res) => {
       });
     }
 
-    // Incrementa a contagem de rotas
     await prisma.routeDailyUsage.update({
       where: { id: usage.id },
       data: { count: usage.count + numberOfRoutesToAdd }
@@ -138,7 +261,6 @@ app.post('/api/routes/add', authenticateToken, async (req, res) => {
   }
 });
 
-// Endpoint para apenas checar o status atual (mostrar no painel)
 app.get('/api/routes/status', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
@@ -166,10 +288,9 @@ app.get('/api/routes/status', authenticateToken, async (req, res) => {
 
 app.post('/api/payments/pix', authenticateToken, async (req, res) => {
   try {
-    const { plan } = req.body; // 'diario', 'mensal', 'trimestral'
+    const { plan } = req.body;
     const userId = req.user.id;
 
-    // Configurar valores
     let amount = 0;
     let days = 0;
 
@@ -178,13 +299,12 @@ app.post('/api/payments/pix', authenticateToken, async (req, res) => {
     else if (plan === 'trimestral') { amount = 50.00; days = 90; }
     else { return res.status(400).json({ error: 'Plano inválido' }); }
 
-    // Chamada direta para a API do Mercado Pago usando fetch para criar PIX
     const response = await fetch('https://api.mercadopago.com/v1/payments', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${process.env.MP_ACCESS_TOKEN}`,
         'Content-Type': 'application/json',
-        'X-Idempotency-Key': `${userId}-${Date.now()}` // Previne pagamentos duplicados acidentais
+        'X-Idempotency-Key': `${userId}-${Date.now()}`
       },
       body: JSON.stringify({
         transaction_amount: amount,
@@ -203,7 +323,6 @@ app.post('/api/payments/pix', authenticateToken, async (req, res) => {
       return res.status(500).json({ error: 'Falha ao comunicar com o banco.' });
     }
 
-    // Salvar no banco a "intenção" de pagamento para este usuário
     await prisma.subscription.upsert({
       where: { userId },
       update: {
@@ -219,7 +338,6 @@ app.post('/api/payments/pix', authenticateToken, async (req, res) => {
       }
     });
 
-    // Retorna os dados do PIX (QR Code e Copia/Cola) para o frontend exibir
     res.json({
       paymentId: data.id,
       qr_code: data.point_of_interaction.transaction_data.qr_code,
@@ -232,13 +350,11 @@ app.post('/api/payments/pix', authenticateToken, async (req, res) => {
   }
 });
 
-// Polling do Frontend: Verifica se o pagamento já foi aprovado
 app.get('/api/payments/status/:paymentId', authenticateToken, async (req, res) => {
   try {
     const { paymentId } = req.params;
     const userId = req.user.id;
 
-    // Consultar o pagamento na API do MP
     const response = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
       headers: {
         'Authorization': `Bearer ${process.env.MP_ACCESS_TOKEN}`
@@ -248,7 +364,6 @@ app.get('/api/payments/status/:paymentId', authenticateToken, async (req, res) =
     const data = await response.json();
 
     if (data.status === 'approved') {
-      // Atualizar o banco liberando a conta do entregador
       const sub = await prisma.subscription.findUnique({ where: { userId } });
       let daysToAdd = 30;
       if (sub.plan === 'diario') daysToAdd = 1;
@@ -268,13 +383,12 @@ app.get('/api/payments/status/:paymentId', authenticateToken, async (req, res) =
       return res.json({ status: 'approved', expiresAt });
     }
 
-    res.json({ status: data.status }); // 'pending', 'rejected', etc
+    res.json({ status: data.status });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Erro ao consultar pagamento.' });
   }
 });
-
 
 // Inicialização
 app.listen(PORT, () => {
