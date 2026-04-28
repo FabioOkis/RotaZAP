@@ -146,6 +146,15 @@
     .tag-red{background:rgba(255,82,82,0.12);color:var(--danger);border:1px solid rgba(255,82,82,0.2)}
     .tag-gray{background:rgba(106,143,116,0.12);color:var(--muted);border:1px solid var(--border)}
 
+    .password-field { position: relative; }
+    .password-toggle {
+      position: absolute; right: 12px; top: 50%; transform: translateY(-30%);
+      background: none; border: none; color: var(--muted); cursor: pointer;
+      font-size: 1.1rem; display: flex; align-items: center; justify-content: center;
+      padding: 4px; z-index: 5;
+    }
+    .password-toggle:hover { color: var(--green); }
+
     /* ── MODAL ── */
     .overlay{position:fixed;inset:0;background:rgba(0,0,0,0.75);backdrop-filter:blur(6px);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px;opacity:0;pointer-events:none;transition:opacity 0.3s}
     .overlay.open{opacity:1;pointer-events:all}
@@ -188,7 +197,10 @@
     </div>
     <div class="form-group">
       <label>Senha</label>
-      <input type="password" id="loginPassword" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()"/>
+      <div class="password-field">
+        <input type="password" id="loginPassword" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()"/>
+        <button type="button" class="password-toggle" onclick="togglePassword('loginPassword', this)">👁️</button>
+      </div>
     </div>
     <button class="btn btn-primary btn-full" onclick="doLogin()">Entrar no painel →</button>
     <div class="error-msg" id="loginError">E-mail ou senha incorretos</div>
@@ -344,7 +356,10 @@
       </div>
       <div class="form-group" id="passwordGroup">
         <label>Senha</label>
-        <input type="password" id="userPasswordInput" placeholder="Mínimo 6 caracteres"/>
+        <div class="password-field">
+          <input type="password" id="userPasswordInput" placeholder="Mínimo 6 caracteres"/>
+          <button type="button" class="password-toggle" onclick="togglePassword('userPasswordInput', this)">👁️</button>
+        </div>
       </div>
     </div>
     <div class="modal-footer">
@@ -366,7 +381,10 @@
       <p style="color:var(--muted);font-size:0.88rem;margin-bottom:20px">Digite a nova senha para o entregador <strong id="resetUserName" style="color:var(--text)"></strong>.</p>
       <div class="form-group">
         <label>Nova senha</label>
-        <input type="password" id="resetPasswordInput" placeholder="Mínimo 6 caracteres"/>
+        <div class="password-field">
+          <input type="password" id="resetPasswordInput" placeholder="Mínimo 6 caracteres"/>
+          <button type="button" class="password-toggle" onclick="togglePassword('resetPasswordInput', this)">👁️</button>
+        </div>
       </div>
     </div>
     <div class="modal-footer">
@@ -453,6 +471,17 @@ async function verifyAndInit() {
   } catch {
     localStorage.removeItem('rz_admin_token');
     token = null;
+  }
+}
+
+function togglePassword(inputId, btn) {
+  const input = document.getElementById(inputId);
+  if (input.type === 'password') {
+    input.type = 'text';
+    btn.textContent = '🔒';
+  } else {
+    input.type = 'password';
+    btn.textContent = '👁️';
   }
 }
 

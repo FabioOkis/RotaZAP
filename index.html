@@ -484,6 +484,15 @@
     .form-group input::placeholder { color: var(--muted); }
     .form-group input.error { border-color: var(--danger); }
 
+    .password-field { position: relative; }
+    .password-toggle {
+      position: absolute; right: 12px; top: 50%; transform: translateY(-30%);
+      background: none; border: none; color: var(--muted); cursor: pointer;
+      font-size: 1.1rem; display: flex; align-items: center; justify-content: center;
+      padding: 4px; z-index: 5;
+    }
+    .password-toggle:hover { color: var(--green); }
+
     .form-error {
       background: rgba(255,82,82,0.08);
       border: 1px solid rgba(255,82,82,0.25);
@@ -735,7 +744,10 @@
       </div>
       <div class="form-group">
         <label>Senha</label>
-        <input id="loginPassword" type="password" placeholder="••••••••" autocomplete="current-password"/>
+        <div class="password-field">
+          <input id="loginPassword" type="password" placeholder="••••••••" autocomplete="current-password"/>
+          <button type="button" class="password-toggle" onclick="togglePassword('loginPassword', this)">👁️</button>
+        </div>
       </div>
       <button class="btn btn-primary btn-lg btn-full" id="loginBtn" onclick="doLogin()">Entrar →</button>
       <div class="form-footer">
@@ -756,7 +768,10 @@
       </div>
       <div class="form-group">
         <label>Senha</label>
-        <input id="registerPassword" type="password" placeholder="Mínimo 6 caracteres" autocomplete="new-password"/>
+        <div class="password-field">
+          <input id="registerPassword" type="password" placeholder="Mínimo 6 caracteres" autocomplete="new-password"/>
+          <button type="button" class="password-toggle" onclick="togglePassword('registerPassword', this)">👁️</button>
+        </div>
       </div>
       <button class="btn btn-primary btn-lg btn-full" id="registerBtn" onclick="doRegister()">Criar conta →</button>
       <div class="form-footer">
@@ -818,6 +833,17 @@
       document.getElementById('modalSub').textContent = 'Informe seu e-mail para receber o link';
     }
     clearError();
+  }
+
+  function togglePassword(inputId, btn) {
+    const input = document.getElementById(inputId);
+    if (input.type === 'password') {
+      input.type = 'text';
+      btn.textContent = '🔒';
+    } else {
+      input.type = 'password';
+      btn.textContent = '👁️';
+    }
   }
 
   // ─── ERRO ────────────────────────────────────────────────
