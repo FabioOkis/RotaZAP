@@ -19,6 +19,7 @@ model User {
   // Relations
   subscription Subscription?
   dailyUsages  RouteDailyUsage[]
+  payments     Payment[]
 }
 
 model Subscription {
@@ -40,4 +41,14 @@ model RouteDailyUsage {
   count     Int      @default(0)
 
   @@unique([userId, date]) // Um registro de uso por dia por usuário
+}
+model Payment {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id])
+  mpId      String   @unique // ID do pagamento no Mercado Pago
+  status    String   // approved, pending, rejected
+  amount    Float
+  plan      String
+  createdAt DateTime @default(now())
 }

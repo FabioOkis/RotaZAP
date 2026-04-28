@@ -1,15 +1,11 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>RotaZap — Planos e Pagamento</title>
   <meta name="description" content="Escolha o plano RotaZap ideal para você. R$1/dia ativo, R$20/mês ou R$50 trimestral. Pague com PIX, rápido e seguro.">
-  <meta property="og:title" content="RotaZap — Planos e Pagamento">
-  <meta property="og:type" content="website">
-  <meta name="theme-color" content="#00e676">
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
-  <link rel="manifest" href="manifest.json">
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
   <style>
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -20,11 +16,6 @@
       --font-display:'Syne',sans-serif;--font-body:'DM Sans',sans-serif;
     }
     body{background:var(--bg);color:var(--text);font-family:var(--font-body);min-height:100vh}
-    body::before{
-      content:'';position:fixed;inset:0;
-      background-image:linear-gradient(rgba(0,230,118,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(0,230,118,0.03) 1px,transparent 1px);
-      background-size:40px 40px;pointer-events:none;z-index:0;
-    }
     nav{
       position:sticky;top:0;background:rgba(10,15,13,0.9);backdrop-filter:blur(10px);
       border-bottom:1px solid var(--border);padding:16px 40px;
@@ -72,23 +63,14 @@
     }
     .plan-card.selected .check-radio{background:var(--green);border-color:var(--green);color:#0a0f0d;}
 
-    /* PIX SECTION */
     .pix-section{
       background:var(--card);border:1px solid rgba(0,230,118,0.2);border-radius:24px;
       padding:48px;display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:center;
       position:relative;overflow:hidden;
     }
-    .pix-section::before{
-      content:'';position:absolute;top:0;left:0;right:0;height:2px;
-      background:linear-gradient(90deg,transparent,var(--green),transparent);
-    }
+    @media(max-width:700px){ .pix-section{grid-template-columns:1fr;gap:32px} .page{padding:40px 20px} }
 
-    @media(max-width:700px){
-      .pix-section{grid-template-columns:1fr;gap:32px}
-      .page{padding:40px 20px}
-    }
-
-    .pix-info h2{font-family:var(--font-display);font-size:1.6rem;font-weight:800;letter-spacing:-0.5px;margin-bottom:12px}
+    .pix-info h2{font-family:var(--font-display);font-size:1.6rem;font-weight:800;margin-bottom:12px}
     .pix-info p{color:var(--muted);font-size:0.9rem;line-height:1.7;margin-bottom:20px}
 
     .pix-steps{display:flex;flex-direction:column;gap:14px;margin-bottom:24px}
@@ -100,23 +82,19 @@
       display:flex;align-items:center;justify-content:center;
     }
     .step-text{font-size:0.85rem;color:var(--muted);padding-top:4px;line-height:1.5}
-    .step-text strong{color:var(--text)}
 
     .pix-key-box{
       background:var(--surface);border:1px solid var(--border);border-radius:12px;
       padding:14px 16px;display:flex;align-items:center;gap:12px;
     }
-    .pix-key-label{font-size:0.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;display:block;margin-bottom:2px}
+    .pix-key-label{font-size:0.72rem;color:var(--muted);text-transform:uppercase;display:block;margin-bottom:2px}
     .pix-key-value{font-size:0.8rem;font-family:monospace;color:var(--text);word-break:break-all}
     .copy-btn{
       background:var(--green-glow);border:1px solid rgba(0,230,118,0.2);
       border-radius:8px;padding:8px 14px;color:var(--green);font-size:0.78rem;
       font-weight:600;cursor:pointer;white-space:nowrap;transition:all 0.2s;
-      font-family:var(--font-body);flex-shrink:0;
     }
-    .copy-btn:hover{background:rgba(0,230,118,0.2)}
 
-    /* QR CODE */
     .qr-wrap{text-align:center}
     .qr-frame{
       display:inline-block;padding:16px;
@@ -124,33 +102,15 @@
       margin-bottom:16px;
     }
     .qr-frame img{width:200px;height:200px;display:block;border-radius:8px}
+    .qr-amount{font-family:var(--font-display);font-size:1.4rem;font-weight:800;color:var(--green);margin-bottom:4px}
     .qr-label{font-size:0.82rem;color:var(--muted)}
-    .qr-amount{
-      font-family:var(--font-display);font-size:1.4rem;font-weight:800;
-      color:var(--green);margin-bottom:4px;
-    }
-    .qr-bank{font-size:0.78rem;color:var(--muted)}
 
-    /* AMOUNT SELECTOR */
-    .amount-selector{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px}
-    .amount-btn{
-      background:var(--surface);border:1px solid var(--border);
-      border-radius:8px;padding:7px 18px;color:var(--muted);
-      font-size:0.85rem;font-weight:600;cursor:pointer;
-      transition:all 0.2s;font-family:var(--font-body);
-    }
-    .amount-btn.active{background:var(--green-glow);border-color:rgba(0,230,118,0.3);color:var(--green)}
-
-    /* HISTORY */
     .history-section{margin-top:60px}
     .history-section h3{font-family:var(--font-display);font-size:1.2rem;font-weight:700;margin-bottom:20px}
     .history-empty{
       background:var(--card);border:1px solid var(--border);border-radius:14px;
       padding:40px;text-align:center;color:var(--muted);font-size:0.88rem;
     }
-
-    footer{border-top:1px solid var(--border);padding:24px 40px;text-align:center;color:var(--muted);font-size:0.8rem;position:relative;z-index:1}
-    @media(max-width:600px){nav{padding:14px 20px}footer{padding:20px}}
 
     .toast{
       position:fixed;bottom:30px;left:50%;transform:translateX(-50%) translateY(20px);
@@ -173,35 +133,30 @@
 <div class="page">
   <div class="page-header">
     <h1>Planos & Pagamento</h1>
-    <p>Simples, justo e sem surpresas. Pague apenas pelos dias que usar.</p>
+    <p>Escolha o plano e finalize o pagamento via PIX para liberação imediata.</p>
   </div>
 
-  <!-- PLANS -->
   <div class="plans-grid">
     <div class="plan-card" onclick="selectPlan(this,'R$ 1,00','Diário')" id="plan1">
       <div class="plan-icon">⚡</div>
       <div class="plan-name">Diário</div>
       <div class="plan-price">R$ 1<span>/dia ativo</span></div>
-      <div class="plan-desc">Pague só nos dias em que fizer entregas. Sem mensalidade.</div>
+      <div class="plan-desc">Pague só nos dias em que fizer entregas.</div>
       <ul class="plan-features">
-        <li>Rotas ilimitadas no dia</li>
-        <li>Importação de arquivos</li>
-        <li>Mapa com rota otimizada</li>
-        <li>Sem fidelidade</li>
+        <li>Rotas ilimitadas</li>
+        <li>Otimização inteligente</li>
       </ul>
       <div class="check-radio"></div>
     </div>
 
-    <div class="plan-card popular selected" onclick="selectPlan(this,'R$ 20,00','Mensal — 20 dias')" id="plan2">
+    <div class="plan-card popular selected" onclick="selectPlan(this,'R$ 20,00','Mensal')" id="plan2">
       <div class="plan-icon">🚀</div>
       <div class="plan-name">Mensal</div>
       <div class="plan-price">R$ 20<span>/mês</span></div>
-      <div class="plan-desc">Equivale a R$ 1/dia para até 20 dias ativos. Sem limite de uso.</div>
+      <div class="plan-desc">Equivale a R$ 1/dia para 20 dias ativos.</div>
       <ul class="plan-features">
-        <li>Tudo do plano diário</li>
         <li>Histórico de rotas</li>
         <li>Suporte prioritário</li>
-        <li>Economia de 20% vs diário</li>
       </ul>
       <div class="check-radio">✓</div>
     </div>
@@ -210,28 +165,19 @@
       <div class="plan-icon">💎</div>
       <div class="plan-name">Trimestral</div>
       <div class="plan-price">R$ 50<span>/3 meses</span></div>
-      <div class="plan-desc">Melhor custo-benefício para quem trabalha regularmente.</div>
+      <div class="plan-desc">Melhor custo-benefício.</div>
       <ul class="plan-features">
-        <li>Tudo do plano mensal</li>
         <li>Relatórios detalhados</li>
-        <li>Exportar rotas em PDF</li>
-        <li>Economia de 44% vs diário</li>
+        <li>Exportar PDF</li>
       </ul>
       <div class="check-radio"></div>
     </div>
   </div>
 
-  <!-- PIX PAYMENT -->
   <div class="pix-section">
     <div class="pix-info">
       <h2>Pagar com PIX</h2>
       <p>Pagamento instantâneo, 24h por dia. Após confirmar o pagamento, sua conta é liberada em minutos.</p>
-
-      <div class="amount-selector" id="amountSelector">
-        <button class="amount-btn" onclick="setAmount(this,'R$ 1,00')">R$ 1</button>
-        <button class="amount-btn active" onclick="setAmount(this,'R$ 20,00')">R$ 20</button>
-        <button class="amount-btn" onclick="setAmount(this,'R$ 50,00')">R$ 50</button>
-      </div>
 
       <div class="pix-steps">
         <div class="pix-step">
@@ -248,39 +194,52 @@
         </div>
       </div>
 
-      <div class="pix-key-box">
+      <div style="display:flex; gap:12px; flex-direction:column; margin-bottom:20px;">
+        <button class="btn btn-primary btn-lg" id="btnGeneratePix" onclick="generatePIX()" style="width:100%; justify-content:center;">
+          Gerar QR Code PIX
+        </button>
+        <button class="btn btn-ghost" id="btnCheckoutPro" onclick="generateCheckout()" style="width:100%; justify-content:center; border-color:var(--green); color:var(--green);">
+          💳 Outros Meios (Cartão, Boleto)
+        </button>
+      </div>
+
+      <div class="pix-key-box" id="pixKeyContainer" style="opacity:0.3; pointer-events:none;">
         <div style="flex:1">
-          <span class="pix-key-label">Chave PIX (aleatória) · Caixa Econômica</span>
-          <div class="pix-key-value" id="pixKey">44ab6510-a9b4-4de7-9d8d-d536bcf97582</div>
+          <span class="pix-key-label">Chave PIX (Copia e Cola)</span>
+          <div class="pix-key-value" id="pixKey">------------------------------------------------------------</div>
         </div>
-        <button class="copy-btn" onclick="copyPix()">📋 Copiar</button>
+        <button class="copy-btn" id="copyBtn" onclick="copyPix()" disabled>📋 Copiar</button>
       </div>
     </div>
 
     <div class="qr-wrap">
       <div class="qr-frame">
-        <img src="data:image/png;base64,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" alt="QR Code PIX RotaZap"/>
+        <img id="qrImg" src="data:image/png;base64,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" alt="QR Code"/>
       </div>
       <div class="qr-amount" id="qrAmount">R$ 20,00</div>
       <div class="qr-label">Plano <span id="qrPlan">Mensal</span></div>
-      <div class="qr-bank" style="margin-top:4px">Caixa Econômica Federal · RotaZap</div>
+      <div class="qr-bank" style="margin-top:4px; font-size: 0.7rem; color: var(--muted);">Pagamento processado via Mercado Pago</div>
     </div>
   </div>
 
-  <!-- HISTORY -->
   <div class="history-section">
     <h3>Histórico de pagamentos</h3>
-    <div class="history-empty">
+    <div class="history-empty" id="historyContainer">
       <div style="font-size:2rem;margin-bottom:10px">🧾</div>
-      Nenhum pagamento registrado ainda.
+      Buscando seu histórico...
     </div>
   </div>
 </div>
 
-<footer>© 2025 RotaZap · Todos os direitos reservados · <a href="privacy.html" style="color:var(--muted)">Privacidade</a></footer>
+<footer>© 2025 RotaZap · Todos os direitos reservados</footer>
 <div class="toast" id="toast"></div>
 
 <script>
+  let pollInterval;
+  let selectedPlanKey = 'mensal';
+  let selectedAmount = 'R$ 20,00';
+  let selectedLabel = 'Mensal';
+
   function selectPlan(el, amount, label) {
     document.querySelectorAll('.plan-card').forEach(c => {
       c.classList.remove('selected');
@@ -288,87 +247,164 @@
     });
     el.classList.add('selected');
     el.querySelector('.check-radio').textContent = '✓';
+    selectedAmount = amount;
+    selectedLabel = label;
+    selectedPlanKey = label.toLowerCase().includes('diário') ? 'diario' : (label.toLowerCase().includes('trimestral') ? 'trimestral' : 'mensal');
+    
     document.getElementById('qrAmount').textContent = amount;
     document.getElementById('qrPlan').textContent = label;
   }
 
-  function setAmount(btn, amount) {
-    document.querySelectorAll('.amount-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    document.getElementById('qrAmount').textContent = amount;
+  async function generatePIX() {
+    const token = sessionStorage.getItem('rotazap_token');
+    if (!token) { showToast("⚠️ Faça login primeiro"); return; }
+
+    const btn = document.getElementById('btnGeneratePix');
+    btn.textContent = "⏳ Gerando PIX...";
+    btn.disabled = true;
+
+    try {
+      const res = await fetch('/api/payments/pix', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+        body: JSON.stringify({ plan: selectedPlanKey })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Erro ao gerar PIX");
+
+      document.getElementById('qrImg').src = "data:image/jpeg;base64," + data.qr_code_base64;
+      document.getElementById('pixKey').textContent = data.qr_code;
+      document.getElementById('pixKeyContainer').style.opacity = "1";
+      document.getElementById('pixKeyContainer').style.pointerEvents = "all";
+      document.getElementById('copyBtn').disabled = false;
+      btn.textContent = "✅ PIX Gerado!";
+      
+      startPaymentPolling(data.paymentId, token);
+    } catch (e) {
+      showToast("❌ " + e.message);
+      btn.textContent = "Gerar QR Code PIX";
+      btn.disabled = false;
+    }
+  }
+
+  async function generateCheckout() {
+    const token = sessionStorage.getItem('rotazap_token');
+    if (!token) { showToast("⚠️ Faça login primeiro"); return; }
+
+    const btn = document.getElementById('btnCheckoutPro');
+    const originalText = btn.innerHTML;
+    btn.textContent = "⏳ Abrindo Mercado Pago...";
+    btn.disabled = true;
+
+    try {
+      const res = await fetch('/api/payments/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+        body: JSON.stringify({ plan: selectedPlanKey })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Erro ao gerar checkout");
+
+      showToast("🚀 Redirecionando...");
+      setTimeout(() => {
+        window.location.href = data.init_point;
+      }, 800);
+    } catch (e) {
+      showToast("❌ " + e.message);
+      btn.innerHTML = originalText;
+      btn.disabled = false;
+    }
+  }
+
+  function startPaymentPolling(paymentId, token) {
+    if (pollInterval) clearInterval(pollInterval);
+    pollInterval = setInterval(async () => {
+      try {
+        const res = await fetch('/api/payments/status/' + paymentId, {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        const data = await res.json();
+        if (data.status === 'approved') {
+          clearInterval(pollInterval);
+          showToast("✅ Pago! Liberando...");
+          setTimeout(() => window.location.href = 'dashboard.html', 1500);
+        }
+      } catch (e) { console.error(e); }
+    }, 5000);
+  }
+
+  async function fetchHistory() {
+    const token = sessionStorage.getItem('rotazap_token');
+    if (!token) return;
+
+    try {
+      const res = await fetch('/api/payments/history', {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      const payments = await res.json();
+      const container = document.getElementById('historyContainer');
+
+      if (!payments || payments.length === 0) {
+        container.innerHTML = '<div style="font-size:2rem;margin-bottom:10px">🧾</div>Nenhum pagamento registrado ainda.';
+        return;
+      }
+
+      let html = `<table style="width:100%; border-collapse:collapse; font-size:0.85rem; text-align:left;">
+        <thead style="color:var(--muted); border-bottom:1px solid var(--border);">
+          <tr>
+            <th style="padding:10px;">Data</th>
+            <th style="padding:10px;">Plano</th>
+            <th style="padding:10px;">Valor</th>
+            <th style="padding:10px;">Status</th>
+          </tr>
+        </thead>
+        <tbody>`;
+
+      payments.forEach(p => {
+        const date = new Date(p.createdAt).toLocaleDateString('pt-BR');
+        let statusHtml = '';
+        if (p.status === 'approved') {
+          statusHtml = '<span style="background:rgba(0,230,118,0.15); color:var(--green); padding:4px 10px; border-radius:100px; font-size:0.75rem; font-weight:700;">Aprovado</span>';
+        } else if (p.status === 'pending') {
+          statusHtml = '<span style="background:rgba(255,167,38,0.15); color:#ffa726; padding:4px 10px; border-radius:100px; font-size:0.75rem; font-weight:700;">Pendente</span>';
+        } else {
+          statusHtml = `<span style="background:rgba(255,255,255,0.05); color:var(--muted); padding:4px 10px; border-radius:100px; font-size:0.75rem;">${p.status}</span>`;
+        }
+
+        html += `<tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
+          <td style="padding:14px;">${date}</td>
+          <td style="padding:14px; text-transform:capitalize;">${p.plan}</td>
+          <td style="padding:14px; font-weight:600;">R$ ${p.amount.toFixed(2)}</td>
+          <td style="padding:14px;">${statusHtml}</td>
+        </tr>`;
+      });
+
+      html += `</tbody></table>`;
+      container.innerHTML = html;
+      container.classList.remove('history-empty');
+      container.style.padding = '10px';
+    } catch (e) {
+      console.error(e);
+    }
   }
 
   function copyPix() {
     const key = document.getElementById('pixKey').textContent;
-    navigator.clipboard.writeText(key).then(() => showToast('✓ Chave PIX copiada!'));
+    if (key.includes('---')) return;
+    navigator.clipboard.writeText(key).then(() => showToast('✓ Copiado!'));
   }
 
   function showToast(msg) {
     const t = document.getElementById('toast');
     t.textContent = msg; t.classList.add('show');
-    setTimeout(() => t.classList.remove('show'), 2800);
+    setTimeout(() => t.classList.remove('show'), 3000);
   }
 
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js').catch(() => {});
-  }
-</script>
-<script>
-async function setAmount(btn, text) {
-  document.querySelectorAll('.amount-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  document.getElementById('qrAmount').textContent = text;
-  
-  let plan = 'mensal';
-  if (text.includes('1,00')) plan = 'diario';
-  if (text.includes('50,00')) plan = 'trimestral';
-
-  const token = sessionStorage.getItem('rotazap_token');
-  if (!token) {
-    alert("Você precisa fazer login antes de pagar.");
-    window.location.href = "index.html";
-    return;
-  }
-
-  // Chamar o backend para gerar PIX dinâmico
-  try {
-    const res = await fetch('/api/payments/pix', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
-      body: JSON.stringify({ plan: plan })
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "Erro ao gerar PIX");
-
-    // Atualiza QR Code e Chave
-    document.querySelector('.qr-frame img').src = "data:image/jpeg;base64," + data.qr_code_base64;
-    document.getElementById('pixKey').textContent = data.qr_code;
-    
-    // Inicia polling para verificação
-    startPaymentPolling(data.paymentId, token);
-  } catch (e) {
-    console.error(e);
-    alert(e.message);
-  }
-}
-
-let pollInterval;
-function startPaymentPolling(paymentId, token) {
-  if (pollInterval) clearInterval(pollInterval);
-  pollInterval = setInterval(async () => {
-    try {
-      const res = await fetch('/api/payments/status/' + paymentId, {
-        headers: { 'Authorization': 'Bearer ' + token }
-      });
-      const data = await res.json();
-      if (data.status === 'approved') {
-        clearInterval(pollInterval);
-        alert("Pagamento Aprovado! Sua conta foi liberada.");
-        window.location.href = 'dashboard.html';
-      }
-    } catch (e) { console.error(e); }
-  }, 5000);
-}
+  window.addEventListener('DOMContentLoaded', () => {
+    const defaultCard = document.getElementById('plan2');
+    if (defaultCard) selectPlan(defaultCard, 'R$ 20,00', 'Mensal');
+    fetchHistory();
+  });
 </script>
 </body>
 </html>

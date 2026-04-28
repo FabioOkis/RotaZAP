@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8"/>
@@ -401,7 +401,7 @@
   <button class="sidebar-toggle" onclick="toggleSidebar()">☰</button>
   <div class="logo">Rota<span>Zap</span></div>
   <div class="topbar-sep"></div>
-  <div class="topbar-info">Olá, <strong id="topbarUser">Entregador</strong> · Hoje</div>
+  <div class="topbar-info" id="userInfo">Olá, <strong id="topbarUser">Entregador</strong> · Hoje</div>
   <div class="topbar-right">
     <div class="status-badge active">Em rota</div>
     <button class="btn btn-primary" onclick="openImport()">＋ Endereços</button>
@@ -1133,8 +1133,25 @@ function hideToast() {
 
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeImport(); });
 
+// ─── USER PROFILE ─────────────────────────────────────────
+async function loadUser() {
+  const token = sessionStorage.getItem('rotazap_token');
+  if (!token) { window.location.href = 'index.html'; return; }
+  try {
+    const res = await fetch('/api/user/me', { headers: { 'Authorization': 'Bearer ' + token } });
+    if (!res.ok) throw new Error();
+    const user = await res.json();
+    const plan = user.subscription?.plan || 'Free';
+    const status = user.subscription?.status === 'active' ? 'Ativo' : 'Pendente';
+    document.getElementById('userInfo').innerHTML = `Olá, <strong>${user.name}</strong> · Plano: <span style="color:var(--green)">${plan} (${status})</span>`;
+  } catch (e) {
+    console.error("Erro ao carregar perfil:", e);
+  }
+}
+
 // ─── INICIALIZAÇÃO ────────────────────────────────────────
 (async () => {
+  await loadUser();
   const hasSaved = loadState();
   if (hasSaved) {
     renderMap();
