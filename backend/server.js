@@ -7,12 +7,13 @@ const { PrismaClient } = require('@prisma/client');
 
 const app = express();
 const prisma = new PrismaClient();
-const PORT = process.env.PORT || 3000;
-const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret';
-const APP_URL = process.env.APP_URL || 'http://72.60.250.170';
+const PORT = process.env.PORT || 3002;
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) throw new Error('⛔ JWT_SECRET não configurado no .env! Configure antes de iniciar.');
+const APP_URL = process.env.APP_URL || 'http://72.60.250.170:3002/rotazap';
 
 // Configurações Globais
-app.use(cors());
+app.use(cors({ origin: [APP_URL, 'http://72.60.250.170:3002', 'http://localhost:3002', 'http://localhost:3000'] }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -42,14 +43,24 @@ const isAdmin = (req, res, next) => {
 app.post('/api/auth/register', async (req, res) => {
   try {
     const { name, email, password } = req.body;
+    if (!name || !email || !password) return res.status(400).json({ error: 'Nome, e-mail e senha são obrigatórios.' });
+    if (password.length < 6) return res.status(400).json({ error: 'Senha deve ter no mínimo 6 caracteres.' });
+
     const existingUser = await prisma.user.findUnique({ where: { email } });
-    if (existingUser) return res.status(400).json({ error: 'E-mail já está em uso.' });
+    if (existingUser) return res.status(400).json({ detail: 'E-mail já está em uso.' });
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    await prisma.user.create({
+    const newUser = await prisma.user.create({
       data: { name, email, password: hashedPassword, role: 'user' }
     });
-    res.status(201).json({ message: 'Usuário criado com sucesso!' });
+
+    // Gera token JWT imediatamente para o usuário ser redirecionado ao dashboard
+    const token = jwt.sign(
+      { id: newUser.id, email: newUser.email, role: newUser.role },
+      JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+    res.status(201).json({ token, name: newUser.name, email: newUser.email });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Erro interno no servidor.' });
@@ -281,10 +292,13 @@ app.post('/api/payments/pix', authenticateToken, async (req, res) => {
     else if (plan === 'trimestral') { amount = 50.00; days = 90; }
     else return res.status(400).json({ error: 'Plano inválido' });
 
+    const mpToken = process.env.MP_ACCESS_TOKEN || process.env.MERCADOPAGO_ACCESS_TOKEN;
+    if (!mpToken) return res.status(500).json({ error: 'Mercado Pago não configurado no servidor. Contate o suporte.' });
+
     const response = await fetch('https://api.mercadopago.com/v1/payments', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${process.env.MP_ACCESS_TOKEN}`,
+        'Authorization': `Bearer ${mpToken}`,
         'Content-Type': 'application/json',
         'X-Idempotency-Key': `${userId}-${Date.now()}`
       },
@@ -339,9 +353,10 @@ app.get('/api/payments/status/:paymentId', authenticateToken, async (req, res) =
   try {
     const { paymentId } = req.params;
     const userId = req.user.id;
+    const mpToken = process.env.MP_ACCESS_TOKEN || process.env.MERCADOPAGO_ACCESS_TOKEN;
 
     const response = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
-      headers: { 'Authorization': `Bearer ${process.env.MP_ACCESS_TOKEN}` }
+      headers: { 'Authorization': `Bearer ${mpToken}` }
     });
 
     const data = await response.json();
@@ -386,10 +401,11 @@ app.post('/api/payments/checkout', authenticateToken, async (req, res) => {
     else if (plan === 'trimestral') amount = 50.00;
     else return res.status(400).json({ error: 'Plano inválido' });
 
+    const mpToken = process.env.MP_ACCESS_TOKEN || process.env.MERCADOPAGO_ACCESS_TOKEN;
     const response = await fetch('https://api.mercadopago.com/checkout/preferences', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${process.env.MP_ACCESS_TOKEN}`,
+        'Authorization': `Bearer ${mpToken}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
@@ -435,8 +451,9 @@ app.post('/api/webhook', async (req, res) => {
     if (type === 'payment') {
       const paymentId = data.id;
 
+      const mpToken = process.env.MP_ACCESS_TOKEN || process.env.MERCADOPAGO_ACCESS_TOKEN;
       const response = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
-        headers: { 'Authorization': `Bearer ${process.env.MP_ACCESS_TOKEN}` }
+        headers: { 'Authorization': `Bearer ${mpToken}` }
       });
       const payment = await response.json();
 

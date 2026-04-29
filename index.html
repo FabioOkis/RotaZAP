@@ -897,9 +897,9 @@
       const res = await fetch('/api/auth/login', { method: 'POST', body: form });
       const data = await res.json();
       
-      if (!res.ok) throw new Error(data.detail || 'Erro ao entrar');
+      if (!res.ok) throw new Error(data.detail || data.error || 'Erro ao entrar');
 
-      sessionStorage.setItem('rotazap_token', data.access_token);
+      sessionStorage.setItem('rotazap_token', data.token);
       sessionStorage.setItem('rotazap_user', JSON.stringify({ email: email, name: data.name }));
       window.location.href = 'dashboard.html';
     } catch (err) {
@@ -929,9 +929,9 @@
       });
       const data = await res.json();
       
-      if (!res.ok) throw new Error(data.detail || 'Erro ao criar conta');
+      if (!res.ok) throw new Error(data.detail || data.error || 'Erro ao criar conta');
 
-      sessionStorage.setItem('rotazap_token', data.access_token);
+      sessionStorage.setItem('rotazap_token', data.token);
       sessionStorage.setItem('rotazap_user', JSON.stringify({ email, name }));
       window.location.href = 'dashboard.html';
     } catch (err) {
